@@ -387,6 +387,7 @@ class StorageManager:
         memory_objs: List[MemoryObj],
         transfer_spec=None,
         location: Optional[str] = None,
+        req_id: Optional[str] = None,
     ) -> None:
         """
         Non-blocking function to batched put the memory objects into the
@@ -426,7 +427,9 @@ class StorageManager:
             # NOTE: the handling of exists_in_put_tasks
             # is done in the backend
             ks, objs = obj_dict[cname]
-            backend.batched_submit_put_task(ks, objs, transfer_spec=transfer_spec)
+            backend.batched_submit_put_task(
+                ks, objs, transfer_spec=transfer_spec, req_id=req_id
+            )
 
         for cname, (ks, objs) in obj_dict.items():
             for memory_obj in objs:

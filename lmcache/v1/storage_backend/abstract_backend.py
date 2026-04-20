@@ -74,6 +74,7 @@ class StorageBackendInterface(metaclass=abc.ABCMeta):
         objs: List[MemoryObj],
         transfer_spec: Any = None,
         on_complete_callback: Optional[Callable[[CacheEngineKey], None]] = None,
+        req_id: Optional[str] = None,
     ) -> Union[List[Future], None]:
         """
         An async function to put the MemoryObj into the storage backend.

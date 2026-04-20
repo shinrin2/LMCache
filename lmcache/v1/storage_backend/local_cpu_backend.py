@@ -183,6 +183,7 @@ class LocalCPUBackend(AllocatorBackendInterface):
         memory_objs: List[MemoryObj],
         transfer_spec: Any = None,
         on_complete_callback: Optional[Callable[[CacheEngineKey], None]] = None,
+        req_id: Optional[str] = None,
     ) -> None:
         """
         Synchronously put the MemoryObjs into the local cpu backend.
