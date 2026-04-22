@@ -829,6 +829,7 @@ class LMCacheConnectorV1Impl:
                         slot_mapping=slot_mapping[:lmcache_cached_tokens],
                         vllm_cached_tokens=request.load_spec.vllm_cached_tokens,
                         sync=sync,
+                        req_id=request.req_id,
                     )
                     # NOTE: retrieve for two layers at the first layer
                     next(layerwise_retriever)

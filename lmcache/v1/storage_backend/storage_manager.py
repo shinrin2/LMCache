@@ -519,6 +519,7 @@ class StorageManager:
         self,
         keys: List[List[CacheEngineKey]],
         location: Optional[str] = None,
+        req_id: Optional[str] = None,
     ) -> Generator[Future, None, None]:
         """
         Non-blocking function to get the memory objects into the storages
@@ -529,16 +530,22 @@ class StorageManager:
         :param List[List[CacheEngineKey]] keys: The keys to get. The first
             dimension corresponds to the number of layers, and the second
             dimension corresponds to the number of chunks.
+        :param Optional[str] req_id: The request id threaded through as
+            lookup_id. Defaults to "fake_lookup_id" for backward compat
+            when caller doesn't provide it.
 
         :return: A generator that yields a future for each layer.
         """
         if location is None:
             location = "LocalCPUBackend"
+        effective_lookup_id = req_id if req_id is not None else "fake_lookup_id"
         for keys_multi_chunk in keys:
             # Retrieve all chunks for one layer
             backend = self.storage_backends[location]
             # TODO(Jiayi): need to make async loading and layerwise compatible
-            coro = backend.batched_get_non_blocking("fake_lookup_id", keys_multi_chunk)
+            coro = backend.batched_get_non_blocking(
+                effective_lookup_id, keys_multi_chunk
+            )
             task = asyncio.run_coroutine_threadsafe(coro, self.loop)
             yield task
 

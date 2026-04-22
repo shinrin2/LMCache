@@ -999,6 +999,7 @@ class LMCacheEngine:
             get_generator = self.storage_manager.layerwise_batched_get(
                 keys_layer_major,
                 location=location,
+                req_id=req_id,
             )
 
             assert_layerwise_gpu_connector(self.gpu_connector)
