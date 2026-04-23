@@ -641,17 +641,35 @@ class LMCacheEngine:
             assert isinstance(request_configs, dict)
 
         prev_key = 0
-        for start, end, key in self.token_database.process_tokens(
-            tokens=tokens, mask=mask, request_configs=request_configs
-        ):
+        # Collect all chunks first so we can prefix-check in a single batched
+        # call. Rationale: per-key contains() has no lookup_id (session
+        # context), which precludes per-session cursors in plugin backends.
+        # batched_contains keeps prefix-scan state in local variables and
+        # does not need cross-call session state.
+        chunk_infos = list(
+            self.token_database.process_tokens(
+                tokens=tokens, mask=mask, request_configs=request_configs
+            )
+        )
+
+        if chunk_infos:
+            keys_layer_0 = [
+                info[2].split_layers(self.num_layers)[0] for info in chunk_infos
+            ]
+            hit_chunks, _ = self.storage_manager.batched_contains(
+                keys_layer_0, self.retrieve_locations
+            )
+        else:
+            hit_chunks = 0
+
+        for chunk_idx, (start, end, key) in enumerate(chunk_infos):
             assert isinstance(key, CacheEngineKey)
+            if chunk_idx < hit_chunks:
+                # Prefix chunk already stored; skip (equivalent to the previous
+                # per-key contains() + continue).
+                continue
 
             keys_multi_layer = key.split_layers(self.num_layers)
-            # Only check the first layer
-            if self.storage_manager.contains(
-                keys_multi_layer[0], self.retrieve_locations
-            ):
-                continue
 
             # Allocate the memory object
             num_tokens = end - start
@@ -960,31 +978,44 @@ class LMCacheEngine:
         if request_configs is not None and len(request_configs) != 0:
             assert isinstance(request_configs, dict)
 
+        # Collect all chunks first so we can prefix-check + locate in a single
+        # batched call. Rationale: per-key contains() has no lookup_id (session
+        # context); batched_contains returns (hit_chunks, block_mapping) which
+        # preserves both the prefix length and the single-location invariant.
+        chunk_infos = list(
+            self.token_database.process_tokens(
+                tokens=tokens,
+                mask=mask,
+                request_configs=request_configs,
+            )
+        )
+
+        if chunk_infos:
+            keys_layer_0 = [
+                info[2].split_layers(self.num_layers)[0] for info in chunk_infos
+            ]
+            hit_chunks, block_mapping = self.storage_manager.batched_contains(
+                keys_layer_0, self.retrieve_locations
+            )
+        else:
+            hit_chunks = 0
+            block_mapping = {}
+
         location = None
-        for start, end, key in self.token_database.process_tokens(
-            tokens=tokens,
-            mask=mask,
-            request_configs=request_configs,
-        ):
+        if hit_chunks > 0:
+            # TODO(Jiayi): Support multi-location retrieval in the future
+            assert len(block_mapping) == 1, (
+                "All retrieved keys should be from the same location "
+                "when use layerwise retrieval."
+                "Please support multi-location retrieval in the future."
+            )
+            location = next(iter(block_mapping.keys()))
+
+        for chunk_idx in range(hit_chunks):
+            start, end, key = chunk_infos[chunk_idx]
             assert isinstance(key, CacheEngineKey)
 
             keys_multi_layer = key.split_layers(self.num_layers)
-
-            # NOTE: Only check the first layer
-            if current_location := self.storage_manager.contains(
-                keys_multi_layer[0], self.retrieve_locations
-            ):
-                if location is None:
-                    location = current_location
-                else:
-                    # TODO(Jiayi): Support multi-location retrieval in the future
-                    assert location == current_location, (
-                        "All retrieved keys should be from the same location "
-                        "when use layerwise retrieval."
-                        "Please support multi-location retrieval in the future."
-                    )
-            else:
-                break
 
             starts.append(start)
             ends.append(end)
