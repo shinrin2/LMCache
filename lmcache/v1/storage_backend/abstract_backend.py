@@ -9,6 +9,7 @@ import asyncio
 import torch
 
 # First Party
+from lmcache.logging import init_logger
 from lmcache.utils import CacheEngineKey
 from lmcache.v1.config import LMCacheEngineConfig
 from lmcache.v1.memory_management import (
@@ -17,6 +18,8 @@ from lmcache.v1.memory_management import (
     MemoryObj,
 )
 from lmcache.v1.metadata import LMCacheMetadata
+
+logger = init_logger(__name__)
 
 if TYPE_CHECKING:
     # First Party
@@ -291,6 +294,30 @@ class StorageBackendInterface(metaclass=abc.ABCMeta):
                 break
             hit_chunks += 1
         return hit_chunks
+
+    def batched_contains_with_session(
+        self,
+        keys: List[CacheEngineKey],
+        pin: bool = False,
+        lookup_id: Optional[str] = None,
+    ) -> int:
+        """
+        Session-aware variant of :meth:`batched_contains`.
+
+        Default implementation delegates to :meth:`batched_contains` and
+        ignores ``lookup_id``.  Backends can override to thread per-session
+        state (e.g. prefix-scan cursors keyed by ``(lookup_id, layer_id)``)
+        through a sparse index without maintaining a full per-record index.
+
+        The LMCache storage_manager always routes sync contains calls through
+        this method; existing backends that don't care about sessions continue
+        to work unchanged via the default delegate.
+        """
+        logger.debug(
+            "batched_contains_with_session backend=%s lookup_id=%r n_keys=%d",
+            type(self).__name__, lookup_id, len(keys),
+        )
+        return self.batched_contains(keys, pin)
 
     def touch_cache(self) -> None:
         """

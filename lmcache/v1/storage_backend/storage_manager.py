@@ -927,6 +927,7 @@ class StorageManager:
         keys: List[CacheEngineKey],
         search_range: Optional[List[str]] = None,
         pin: bool = False,
+        lookup_id: Optional[str] = None,
     ) -> tuple[int, dict]:
         """
         Check whether the key exists in the storage backend.
@@ -940,6 +941,11 @@ class StorageManager:
 
         :param bool pin: Whether to pin the key.
 
+        :param Optional[str] lookup_id: Session identifier threaded to
+        session-aware backends so they can maintain per-session prefix-scan
+        cursors without a full per-record index.  Default-impl backends
+        ignore this via ``batched_contains_with_session``'s fallback.
+
         return: Return hit chunks and block mapping by prefix match.
         """
         total_keys = len(keys)
@@ -951,7 +957,9 @@ class StorageManager:
             # NOTE(Jiayi): We do not pin for PDBackend
             pin_in_backend = pin if backend_name != "PDBackend" else False
 
-            hit_chunks = backend.batched_contains(keys, pin_in_backend)
+            hit_chunks = backend.batched_contains_with_session(
+                keys, pin_in_backend, lookup_id=lookup_id
+            )
             if hit_chunks == 0:
                 continue
             block_mapping[backend_name] = keys[:hit_chunks]

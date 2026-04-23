@@ -657,7 +657,7 @@ class LMCacheEngine:
                 info[2].split_layers(self.num_layers)[0] for info in chunk_infos
             ]
             hit_chunks, _ = self.storage_manager.batched_contains(
-                keys_layer_0, self.retrieve_locations
+                keys_layer_0, self.retrieve_locations, lookup_id=req_id,
             )
         else:
             hit_chunks = 0
@@ -995,7 +995,7 @@ class LMCacheEngine:
                 info[2].split_layers(self.num_layers)[0] for info in chunk_infos
             ]
             hit_chunks, block_mapping = self.storage_manager.batched_contains(
-                keys_layer_0, self.retrieve_locations
+                keys_layer_0, self.retrieve_locations, lookup_id=req_id,
             )
         else:
             hit_chunks = 0
@@ -1164,6 +1164,7 @@ class LMCacheEngine:
                         key_all_layers,  # type: ignore
                         search_range,
                         pin,
+                        lookup_id=lookup_id,
                     )
                     # Only all layers are hit and hit in one location,
                     # we consider this key as a hit
@@ -1189,7 +1190,7 @@ class LMCacheEngine:
                     keys.append(chunk_info[2])
                 # hit chunks by prefix matching
                 hit_chunks, block_mapping = self.storage_manager.batched_contains(
-                    keys, search_range, pin
+                    keys, search_range, pin, lookup_id=lookup_id,
                 )
                 if pin and block_mapping:
                     assert lookup_id is not None, (
