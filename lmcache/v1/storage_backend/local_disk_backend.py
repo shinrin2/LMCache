@@ -361,6 +361,7 @@ class LocalDiskBackend(StorageBackendInterface):
         memory_objs: List[MemoryObj],
         transfer_spec: Any = None,
         on_complete_callback: Optional[Callable[[CacheEngineKey], None]] = None,
+        req_id: Optional[str] = None,
     ) -> None:
         """
         Submit batched put tasks to store KV caches to disk asynchronously.
